@@ -1,0 +1,29 @@
+
+model{
+  #Likelihood
+  # binomial data model
+  for (i in 1:N){
+    # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
+    z[i] ~ dbern(psi[i])
+    # probability of ever being developed linear fxn of covariates with state-specific intercept
+    logit(psi[i]) <- psi_alpha + psi_beta1*impervious[i] + psi_beta2*tree[i] + psi_beta3*open[i]
+    
+    # time to detection is a weibull process with state-specific shape and rate determined by covariates
+    ttd[i] ~ dweib(shape, rate[i])
+    log(rate[i]) <- rate_alpha + rate_beta1*impervious[i] + rate_beta2*tree[i] + rate_beta3*open[i]
+    
+  }
+  
+  #Priors
+  shape ~ dgamma(0.001, 0.001)
+  psi_alpha ~ dnorm(0, 0.0001)
+  psi_beta1 ~ dnorm(0, 0.0001)
+  psi_beta2 ~ dnorm(0, 0.0001)
+  psi_beta3 ~ dnorm(0, 0.0001)
+  rate_alpha ~ dnorm(0, 0.0001)
+  rate_beta1 ~ dnorm(0, 0.0001)
+  rate_beta2 ~ dnorm(0, 0.0001)
+  rate_beta3 ~ dnorm(0, 0.0001)
+  
+}
+
