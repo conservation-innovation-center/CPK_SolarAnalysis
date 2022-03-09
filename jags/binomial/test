@@ -1,26 +1,29 @@
 
-model{
-  #Likelihood
-  # for each level of state
-  for (s in 1:S){
-    # two ways we can do this
-    # 1. do a normal dist on a typical intercept
-    alpha[s] ~ dnorm(alpha_mu, alpha_tau)
-
-  }
-  # binomial data model
-  for (i in 1:N){
-    solar[i] ~ dbern(psi[i])
-    # 1 from above
-    logit(psi[i]) <- alpha[state[i]] + beta1*impervious[i] + beta2*tree[i] + beta3*open[i]
-  }
+  model{
+    #Likelihood
+    alpha_shp2 <- alpha_shp1*((1/mu) - 1)
+    alpha_shp1 <- (((1-mu)/v)-1/mu )* pow(mu, 2)
+    # for each level of random
+    for (s in 1:S){
+      # alpha[s] ~ dnorm(alpha_mu, alpha_tau)
+      alpha[s] ~ dbeta(alpha_shp1, alpha_shp2)
   
-  #Priors
-  alpha_mu ~ dnorm(0, 0.0001)
-  alpha_tau <- pow(sigma, -2)
-  sigma ~ dunif(0, 1000)
-  beta1 ~ dnorm(0, 0.00001)
-  beta2 ~ dnorm(0, 0.0001)
-  beta3 ~ dnorm(0, 0.0001)
-}
-
+    }
+    # binomial data model
+    for (i in 1:N){
+      solar[i] ~ dbern(psi[i])
+      logit(psi[i]) <- logit(alpha[statei[i]]) + beta_impervious16*impervious16[i] + beta_open16*open16[i] + beta_tree_cover16*tree_cover16[i] + beta_slope*slope[i]
+    }
+    
+    #Priors
+    # alpha_mu ~ dnorm(0, 0.0001)
+    # alpha_tau <- pow(sigma, -2)
+    # sigma ~ dunif(0, 1000)
+    mu ~ dunif(0, 1)
+    v ~ dunif(0, 0.2)
+    
+    beta_impervious16~dnorm(0, 0.0001)
+    beta_open16~dnorm(0, 0.0001)
+    beta_tree_cover16~dnorm(0, 0.0001)
+    beta_slope~dnorm(0, 0.0001)
+  }

@@ -1,29 +1,58 @@
 
-model{
-  #Likelihood
-  # binomial data model
-  for (i in 1:N){
-    # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
-    z[i] ~ dbern(psi[i])
-    # probability of ever being developed linear fxn of covariates with state-specific intercept
-    logit(psi[i]) <- psi_alpha + psi_beta1*impervious[i] + psi_beta2*tree[i] + psi_beta3*open[i]
+  model{
+    #Likelihood
     
-    # time to detection is a weibull process with state-specific shape and rate determined by covariates
-    ttd[i] ~ dweib(shape, rate[i])
-    log(rate[i]) <- rate_alpha + rate_beta1*impervious[i] + rate_beta2*tree[i] + rate_beta3*open[i]
+    # hyperparameters for random effects on 
+    shape_shape <- pow(shape_mu, 2)/shape_v
+    shape_rate <- shape_mu/shape_v
     
+    rate_alpha_shape <- pow(rate_alpha_mu, 2)/rate_alpha_v
+    rate_alpha_rate <- rate_alpha_mu/rate_alpha_v
+    
+    # psi_alpha_shp2 <- psi_alpha_shp1*((1/psi_alpha_mu) - 1)
+    # psi_alpha_shp1 <- (((1-psi_alpha_mu)/psi_alpha_v)-1/psi_alpha_mu )* pow(psi_alpha_mu, 2)
+    
+    # random intercept per state on binomial intercept and weibul shape
+    for (s in 1:S){
+      # psi_alpha[s] ~ dbeta(psi_alpha_shp1, psi_alpha_shp2)
+      # the shape parameter for weibull is [0, Inf] & indicates increasing, decreasing, or steady risk
+      # BUGS uses shape and rate parameterization of gamma
+      shape[s] ~ dgamma(shape_shape, shape_rate)
+      # the rate or scale parameter is [0, Inf] variability in ttd data
+      rate_alpha[s] ~ dgamma(rate_alpha_shape, rate_alpha_rate)
+    }
+    
+    # binomial data model
+    for (i in 1:N){
+      # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
+      # solar[i] ~ dbern(psi[i])
+      # probability of ever being developed linear fxn of covariates with state-specific intercept
+      # logit(psi[i]) <- logit(psi_alpha[statei[i]]) + psi_beta_impervious16*impervious16[i] + psi_beta_open16*open16[i] + psi_beta_tree_cover16*tree_cover16[i] + psi_beta_slope*slope[i]
+      
+      # time to detection is a weibull process with state-specific shape and rate determined by covariates
+      ttd[i] ~ dweib(shape[statei[i]], rate[i])
+      log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_impervious16*impervious16[i] + rate_beta_open16*open16[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_slope*slope[i]
+      
+      # Expected data under current model
+      ttd_exp[i] ~ dweib(shape[statei[i]], rate[i])
+      # solar_exp[i] ~ dbern(psi[i])
+    }
+    
+    #Priors
+    # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
+    # to simulate gamma(0.0001, 0.0001) with no state effect
+    shape_mu ~ dunif(0, 5)
+    shape_v ~ dunif(0, 1000) 
+    rate_alpha_mu ~ dunif(0, 5)
+    rate_alpha_v ~ dunif(0, 1000)
+    # psi_alpha_mu ~ dunif(0, 1) 
+    # psi_alpha_v ~ dunif(0, 0.2)
+    # psi_beta_impervious16~dnorm(0, 0.0001)
+    psi_beta_open16~dnorm(0, 0.0001)
+    psi_beta_tree_cover16~dnorm(0, 0.0001)
+    psi_beta_slope~dnorm(0, 0.0001)
+    rate_beta_impervious16~dnorm(0, 0.0001)
+    rate_beta_open16~dnorm(0, 0.0001)
+    rate_beta_tree_cover16~dnorm(0, 0.0001)
+    rate_beta_slope~dnorm(0, 0.0001)
   }
-  
-  #Priors
-  shape ~ dgamma(0.001, 0.001)
-  psi_alpha ~ dnorm(0, 0.0001)
-  psi_beta1 ~ dnorm(0, 0.0001)
-  psi_beta2 ~ dnorm(0, 0.0001)
-  psi_beta3 ~ dnorm(0, 0.0001)
-  rate_alpha ~ dnorm(0, 0.0001)
-  rate_beta1 ~ dnorm(0, 0.0001)
-  rate_beta2 ~ dnorm(0, 0.0001)
-  rate_beta3 ~ dnorm(0, 0.0001)
-  
-}
-

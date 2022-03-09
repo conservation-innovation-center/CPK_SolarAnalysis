@@ -72,54 +72,66 @@ file.create(modfile)
 writeLines("
 model{
   #Likelihood
-
-  # binomial data model
-  for (i in 1:N){
-    # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
-    z[i] ~ dbern(psi[i])
-    # probability of ever being developed linear fxn of covariates with state-specific intercept
-    logit(psi[i]) <- psi_alpha[state[i]] + psi_beta1*impervious[i] + psi_beta2*tree[i] + psi_beta3*open[i]
-    
-    # time to detection is a weibull process with state-specific shape and rate determined by covariates
-    ttd[i] ~ dweib(shape[state[i]], rate[i])
-    log(rate[i]) <- rate_alpha[state[i]] + rate_beta1*impervious[i] + rate_beta2*tree[i] + rate_beta3*open[i]
-    
-    # model for censoring observed arrays due to not seeing into the future
-    # whether we see an array is a bernouli process determined by
-    d[i] ~ dbern(theta[i])
-    # theta is 0 if site will never be developed (i.e. z[i] = 0) 
-    #  or will be developed but not detected yet (i.e. z[i] = 1, ttd[i] > Tmax[i])
-    theta[i] <- z[i]*step(ttd[i] - Tmax[i]) + (1 - z[i])
-  }
+  
+  # hyperparameters for random effects on 
+  shape_shape <- pow(shape_mu, 2)/shape_v
+  shape_rate <- shape_mu/shape_v
+  
+  rate_alpha_shape <- pow(rate_alpha_mu, 2)/rate_alpha_v
+  rate_alpha_rate <- rate_alpha_mu/rate_alpha_v
+  
+  psi_alpha_shp2 <- psi_alpha_shp1*((1/psi_alpha_mu) - 1)
+  psi_alpha_shp1 <- (((1-psi_alpha_mu)/psi_alpha_v)-1/psi_alpha_mu )* pow(psi_alpha_mu, 2)
+  
   # random intercept per state on binomial intercept and weibul shape
   for (s in 1:S){
-    psi_alpha[s] ~ dnorm(psi_alpha_mu, psi_alpha_tau)
+    psi_alpha[s] ~ dbeta(psi_alpha_shp1, psi_alpha_shp2)
     # the shape parameter for weibull is [0, Inf] & indicates increasing, decreasing, or steady risk
     # BUGS uses shape and rate parameterization of gamma
     shape[s] ~ dgamma(shape_shape, shape_rate)
     # the rate or scale parameter is [0, Inf] variability in ttd data
-    rate_alpha[s] ~ dnorm(rate_alpha_mu, rate_alpha_tau)
+    rate_alpha[s] ~ dgamma(rate_alpha_shape, rate_alpha_rate)
   }
   
-  shape_shape <- pow(mu, 2)/v
-  shape_rate <- mu/v
+  # binomial data model
+  for (i in 1:N){
+    # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
+    solar[i] ~ dbern(psi[i])
+    # probability of ever being developed linear fxn of covariates with state-specific intercept
+    logit(psi[i]) <- logit(psi_alpha[statei[i]]) + psi_beta_impervious16*impervious16[i] + psi_beta_tree_cover16*tree_cover16[i] + psi_beta_open16*open16[i]
+    
+    # time to detection is a weibull process with state-specific shape and rate determined by covariates
+    ttd[i] ~ dweib(shape[statei[i]], rate[i])
+    log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_impervious16*impervious16[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_open16*open16[i]
+    
+    # model for censoring observed arrays due to not seeing into the future
+    # whether we see an array is a bernouli process determined by
+    # theta is 0 if site will never be developed (i.e. z[i] = 0) 
+    #  or will be developed but not detected yet (i.e. z[i] = 1, ttd[i] > Tmax[i])
+    
+    #d[i]~dbern(theta[i])
+    #theta[i] <-z[i]*step(ttd[i] - tmax[i]) + (1-z[i])
+    
+    # Expected data under current model
+    ttd_exp[i] ~ dweib(shape[statei[i]], rate[i])
+    solar_exp[i] ~ dbern(psi[i])
+  }
   
   #Priors
   # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
   # to simulate gamma(0.0001, 0.0001) with no state effect
-  mu ~ dunif(0, 5)
-  v ~ dunif(0, 1000) 
-  rate_alpha_mu ~ dnorm(0, 0.0001)
-  rate_alpha_tau <- pow(sigma, -2)
-  psi_alpha_mu ~ dnorm(0, 0.0001) 
-  psi_alpha_tau <- pow(sigma, -2) 
-  sigma ~ dunif(0, 1000)
-  rate_beta1 ~ dnorm(0, 0.0001)
-  rate_beta2 ~ dnorm(0, 0.0001)
-  rate_beta3 ~ dnorm(0, 0.0001)
-  psi_beta1 ~ dnorm(0, 0.0001)
-  psi_beta2 ~ dnorm(0, 0.0001)
-  psi_beta3 ~ dnorm(0, 0.0001)
+  shape_mu ~ dunif(0, 5)
+  shape_v ~ dunif(0, 1000) 
+  rate_alpha_mu ~ dunif(0, 5)
+  rate_alpha_v ~ dunif(0, 1000)
+  psi_alpha_mu ~ dunif(0, 1) 
+  psi_alpha_v ~ dunif(0, 0.2)
+  rate_beta_impervious16 ~ dnorm(0, 0.0001)
+  rate_beta_tree_cover16 ~ dnorm(0, 0.0001)
+  rate_beta_open16 ~ dnorm(0, 0.0001)
+  psi_beta_impervious16 ~ dnorm(0, 0.0001)
+  psi_beta_tree_cover16 ~ dnorm(0, 0.0001)
+  psi_beta_open16 ~ dnorm(0, 0.0001)
 }
 ", con=modfile)
 ######################################
@@ -127,22 +139,27 @@ model{
 ######################################
 #Best to generate initial values using function
 ttdst <- rep(cleanDF$tmax+1) # creating some fake times greater than tmax by 1
-ttdst[!is.na(cleanDF$ttd)] <- NA
+ttdst[!is.na(cleanDF$ttd)] <- NA # this will only replace unobserved values!!!
+zst <- rep(1, dat$N) # we don't provide z in data, it is estimated so need some starting values
 
 inits <- function(){
   list(
-    mu=runif(0, 5),
-    v=runif(0, 1000),
-    z = rep(0,dat$N),
-    ttd = ttdst,
-    rate_alpha_mu=1,
-    sigma = 1000,
-    rate_beta1=rnorm(1,0,1),
-    rate_beta2=rnorm(1,0,1),
-    rate_beta3=rnorm(1,0,1),
-    psi_beta1=rnorm(1,0,1),
-    psi_beta2=rnorm(1,0,1),
-    psi_beta3=rnorm(1,0,1)
+    #z = zst, 
+    # ttd = ttdst,
+    # we will chose mean and variance for gamma that corresponds to a 'flat' gamma(0.001, 0.001)
+    shape_mu= 1,
+    shape_v= 1000,
+    rate_alpha_mu = 1,
+    rate_alpha_v = 1000,
+    # we will use mean and variance for a 'flat' beta dist beta(0.5, 0.5)
+    psi_alpha_mu = 0.5, 
+    psi_alpha_v = 0.125,
+    rate_beta_impervious16 = rnorm(1,0,1),
+    rate_beta_tree_cover16 = rnorm(1,0,1),
+    rate_beta_open16 = rnorm(1,0,1),
+    psi_beta_impervious16 = rnorm(1,0,1),
+    psi_beta_tree_cover16 = rnorm(1,0,1),
+    psi_beta_open16 = rnorm(1,0,1)
   )
 }
 
@@ -157,9 +174,10 @@ inits <- function(){
 #(deviance is added automatically if DIC=TRUE)
 #List must be specified as a character vector
 params <- c(
-  'z',
-  map_chr(1:length(cont), function(x){sprintf('psi_beta%s',x)}),
-  map_chr(1:length(cont), function(x){sprintf('rate_beta%s', x)}),
+  'ttd_exp',
+  'solar_exp',
+  map_chr(continuous, function(x){sprintf('psi_beta_%s',x)}),
+  map_chr(continuous, function(x){sprintf('rate_beta_%s', x)}),
   map_chr(1:dat$S, function(x){sprintf('psi_alpha[%s]',x)}),
   map_chr(1:dat$S, function(x){sprintf('rate_alpha[%s]', x)})
 )

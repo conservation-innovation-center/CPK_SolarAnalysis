@@ -14,12 +14,15 @@ cleanDF <- filter(df, state %in% c('Delaware', 'District of Columbia', 'Maryland
   # filter (presumably) random polygons that got drawn in water
   filter(!is.na(FIPS))%>%
   filter(!is.na(impervious16))%>%
+  filter(!is.na(cultivated16))%>%
   mutate(solar = as.numeric(year < 2022),
          statef = as.factor(state),
+         statei = as.numeric(statef),
          ttd = ifelse(solar, year - 2016, NA),
          parel_area = min(Shape_Area_x, Shape_Area_y, na.rm = TRUE),
          index_parcel = min(index_parcel_x, index_parcel_y, na.rm = TRUE),
-         county = min(county_x, county_y, na.rm = TRUE)
+         county = min(county_x, county_y, na.rm = TRUE),
+         d = as.numeric(solar == 0)
   )%>%
   group_by(state)%>%
   mutate(tmax = 2022 - min(year))%>%
@@ -45,6 +48,8 @@ cleanDF <- filter(df, state %in% c('Delaware', 'District of Columbia', 'Maryland
          GAP_Sts,
          road_dist,
          line_dist,
-         statef)
+         statei,
+         statef,
+         d)
 
-saveRDS(cleanDF, file = 'data/cleaned_solar_analysis_data.rds')
+saveRDS(as.data.frame(cleanDF), file = 'data/cleaned_solar_analysis_data.rds')

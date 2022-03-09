@@ -37,7 +37,8 @@ cat <- list(
 # list of our response variables
 resp <- list(
   solar = cleanDF$solar,
-  ttd = cleanDF$ttd
+  ttd = cleanDF$ttd,
+  d = 
 )
 
 # list of our constants
@@ -137,7 +138,5 @@ out <- update(out,n.iter = 1000)
 
 ## Evaluate residuals
 
-# first we compute the posterior mean response...?
-mu <- out$mean$alpha + logistic(out$mean$beta1*dat$impervious + out$mean$beta2*dat$tree + out$mean$beta3*dat$open)
 
 
