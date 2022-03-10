@@ -21,8 +21,8 @@ calc_z <- function(x){
 #' standardize(v)
 standardize <- function(x){
   mx <-max(x, na.rm = TRUE)
-  mn <-min(x, na.rm = TRUE)
-  z <- ((x-mn)/(mx-mn))+0.0001
+  mn <-min(x, na.rm = TRUE)-0.0001
+  z <- ((x-mn)/(mx-mn))
   return(z)
 }
 
@@ -372,7 +372,7 @@ write_jags_weibull_raneff <- function(filename, bin_response, cont_response, pre
       log(rate[i]) <- %s
       
       # Expected data under current model
-      ttd_new[i] ~ dweib(shape[statei[i]], rate[i])
+      ttd_sim[i] ~ dweib(shape[statei[i]], rate[i])
       # solar_exp[i] ~ dbern(psi[i])
     }
     
@@ -385,7 +385,6 @@ write_jags_weibull_raneff <- function(filename, bin_response, cont_response, pre
     rate_alpha_v ~ dunif(0, 1000)
     # psi_alpha_mu ~ dunif(0, 1) 
     # psi_alpha_v ~ dunif(0, 0.2)
-    # %s
     %s
   }"
   
@@ -395,7 +394,7 @@ write_jags_weibull_raneff <- function(filename, bin_response, cont_response, pre
     binPredictorString,
     contResponseString,
     contPredictorString,
-    binPriorsString,
+    #binPriorsString,
     contPriorString)
   cat(finalString, sep = "")
   # write our model string to specified file
@@ -472,46 +471,58 @@ compute_binomial_response <- function(dataset, out, predictors, random = NULL){
   return(mu)
 }
 
-compute_weibull_response <- function(alpha, betas, predictors, shape){
-  rate <- as.matrix(betas) %*% t(as.matrix(predictors)) + log(alpha)
-  y <- meanWeibullJags(shape, rate)
-}
-
-compute_weibull_response <- function(dataset, params, predictors, random = NULL){
-  df <- as.data.frame(dataset[c(predictors, random)])
-  # psi_means <- as.data.frame(params[grepl('psi_beta', names(params))])
-  rate_means <- as.data.frame(params[grepl('rate_beta', names(params))])
-  if(!is.null(random)){
-    # psi_pred_func <- function(x){
-    #   psi_int <- logit(params$psi_alpha[df[x, random]])
-    #   psi <- logistic(psi_int + sum(df[x, predictors]*psi_means)) 
-    #   return(psi)
-    # }
-    rate_pred_func <- function(x){
-      rate_int <- log(params$rate_alpha[df[x, random]])
-      rate <- exp(rate_int + sum(df[x, predictors]*rate_means))
-      return(rate)
+#' Expected response of Weibull model
+#'
+#' @param dataset a jagsUI structured dataset containing n predictor variables
+#' @param params either the sims.list or mean objects from jagsUI out created by \code{\link{write_jags_binomial}} or \code{\ling{write_jags_binomial_raneff}}
+#' @param predictors character vector containing names of predictor variables. must be supplied in same order as in model creation
+#'
+#' @return matrix of expected values of same dimensions as param
+#'
+#' @examples
+#' continuous <- c('impervious16', 'open16', 'tree_cover16', 'slope') 
+#' 
+#' dat <- make_jags_data(
+#'   dataframe = cleanDF,
+#'   random = c('statei'),
+#'   continuous = continuous,
+#'   categorical = c('tmax', 'statei'),
+#'   response = c('solar', 'ttd', 'd')
+#' )
+#' 
+#' inits <- write_jags_weibull_raneff(modfile, 'solar', continuous, 'statei')
+#' 
+#' out <- jags(data = dat, inits = inits, ...)
+#' # compute expecte value for each observation using mean parameter posteriors
+#' ttd_exp <- compute_weibull_response(dat, out$mean, continuous)
+#' 
+#' # compute expected value for each observation at each MCMC iteration
+#' ttd_exp <- compute_weibull_response(dat, out$sims.list, continuous)
+compute_weibull_response <- function(dataset, params, predictors){
+  pred_df <- as.data.frame(dataset[predictors])
+  betas <- as.data.frame(params[grepl('rate_beta', names(params))])
+  # simRates is a niter x nobs matrix. for mean values, niter is 1
+  simRates <- t(as.matrix(pred_df) %*% t(as.matrix(betas)))
+  if(dim(params$shape)[1] == dim(simRates)[1]){
+    fx <- function(x){
+      i <- dat$statei[x]
+      rate <- exp(simRates[,x] + log(params$rate_alpha[,i]))
+      shape <- params$shape[,i]
+      mu <- meanWeibullJags(shape, rate)
+      return(mu)
     }
   }
   else{
-    # psi_pred_func <- function(x){
-    #   psi_int <- logit(params$psi_alpha)
-    #   psi <- logistic(psi_int + sum(df[x, predictors]*psi_means)) 
-    #   return(psi)
-    # }
-    rate_pred_func <- function(x){
-      rate_int <- log(params$rate_alpha)
-      rate <- exp(rate_int + sum(df[x, predictors]*rate_means))
-      return(rate)
+    fx <- function(x){
+      i <- dat$statei[x]
+      rate <- exp(simRates[,x] + log(params$rate_alpha[i]))
+      shape <- params$shape[i]
+      mu <- meanWeibullJags(shape, rate)
+      return(mu)
     }
   }
-
-  # bin_mu <- map_dbl(1:nrow(df), psi_pred_func)
-  rate_mu <- map_dbl(1:nrow(df), rate_pred_func)
-  
-  shape_mu <- map_dbl(1:nrow(df), function(x){out$mean$shape[df[x, random]]})
-  
-  return(list(rate_mu = rate_mu, shape_mu = shape_mu))
+  expected <- vapply(1:nrow(pred_df), fx, FUN.VALUE = numeric(nrow(simRates)))
+  return(expected)
 }
 
 
@@ -557,4 +568,118 @@ hweibullJags <- function(x, shape, rate){
 meanWeibullJags <- function(shape, rate){
   y <- (rate^(-1/shape))*gamma(1+(1/shape))
   return(y)
+}
+
+write_jags_nbin_raneff <- function(filename, bin_response, cont_response, predictors, random){
+  file.create(filename)
+  binResponseString <- sprintf('%s[i] ~ dbern(psi)', bin_response)
+  # binAlphaString <- sprintf('logit(psi_alpha[%s[i]])', random)
+  # create a string of predictor variables following beta_var*var[i]+...
+  # binPredictorString <- paste(binAlphaString, paste('psi_beta_', predictors, '*', predictors, '[i]', sep = '', collapse = " + "), sep = ' + ')
+  
+  contResponseString <- sprintf('%s[i] ~ dnegbin(p[%s[i]], 1)', cont_response, random)
+  contAlphaString <- sprintf('logit(p_alpha[%s[i]])', random)
+  contPredictorString <- paste(contAlphaString, paste('p_beta_', predictors, '*', predictors, '[i]', sep = '', collapse = " + "), sep = ' + ')
+  
+  # binPriorsString <- paste('psi_beta_', predictors, '~dnorm(0, 0.0001)', sep = "", collapse = '\n    ')
+  contPriorString <- paste('p_beta_', predictors, '~dnorm(0, 0.0001)', sep = "", collapse = '\n    ')
+  
+  baseString <- "
+  model{
+    #Likelihood
+    
+    # Distribution Parameters for Random Efects on
+    # 1. Negative Binomial probability p ~ dbeta(shape1, shape2)
+    p_alpha_shp2 <- p_alpha_shp1*((1/p_alpha_mu) - 1)
+    p_alpha_shp1 <- (((1-p_alpha_mu)/p_alpha_v)-1/p_alpha_mu )* pow(p_alpha_mu, 2)
+    
+    # 2. Bernouli probability p ~ dbeta(shape1, shape2)
+    # psi_alpha_shp2 <- psi_alpha_shp1*((1/psi_alpha_mu) - 1)
+    # psi_alpha_shp1 <- (((1-psi_alpha_mu)/psi_alpha_v)-1/psi_alpha_mu )* pow(psi_alpha_mu, 2)
+    
+    # random intercept per state on binomial intercept and neg binomial intercept
+    for (s in 1:S){
+      # psi_alpha[s] ~ dbeta(psi_alpha_shp1, psi_alpha_shp2)
+  
+      p_alpha[s] ~ dbeta(p_alpha_shp1, p_alpha_shp2)
+    }
+    
+    # binomial data model
+    for (i in 1:N){
+      # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
+      %s
+      
+      # time to detection is a negative binomial process with state-specific shape and rate determined by covariates
+      %s
+      logit(p[i]) <- %s
+      
+      # model for censoring observed arrays due to not seeing into the future
+      # whether we see an array is a bernouli process determined by
+      # theta is 0 if site will never be developed (i.e. z[i] = 0) 
+      #  or will be developed but not detected yet (i.e. z[i] = 1, ttd[i] > Tmax[i])
+      
+      d[i]~dbern(theta[i])
+      theta[i] <-solar[i]*step(ttd[i] - tmax[i]) + (1-solar[i])
+      
+      # Expected data under current model
+      ttd_sim[i] ~ dnegbin(p[statei[i]], 1)
+      ttd_exp[i] <- p[statei[i]]/pow((1-p[statei[i]]), 2)
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i]
+    }
+    
+    fit <- sum(chi2[])
+    fit_sim <- sum(chi2_sim[])
+    bpv <- step(fit_sim - fit)
+    
+    #Priors
+    # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
+    # to simulate gamma(0.0001, 0.0001) with no state effect
+    psi ~ dunif(0, 1)
+    p_alpha_mu ~ dunif(0, 1)
+    p_alpha_v ~ dunif(0, 0.2)
+    # psi_alpha_mu ~ dunif(0, 1) 
+    # psi_alpha_v ~ dunif(0, 0.2)
+    %s
+  }
+  "
+  finalString = sprintf(
+    baseString,
+    binResponseString,
+    # binPredictorString,
+    contResponseString,
+    contPredictorString,
+    # binPriorsString,
+    contPriorString)
+  cat(finalString, sep = "")
+  # write our model string to specified file
+  cat(finalString, file = filename)
+  
+  # dynamically create inits function that will generate initial values for beta parameters for each predictor
+  inits <- function(){
+    zst <- rep(1, dat$N)
+    ttdst <- dat$tmax+1 # creating some fake times greater than tmax by 1
+    ttdst[!is.na(dat$ttd)] <- NA # this strictly overwrites the value of unobserved nodes!!!
+    ls <- list(
+      # z = zst,
+      ttd = ttdst,
+      # we will use mean and variance for a 'flat' beta dist beta(0.5, 0.5)
+      # psi_alpha_mu = 0.5,
+      # psi_alpha_v = 0.125,
+      psi = dunif(1),
+      p_alpha_mu = 0.5,
+      p_alpha_v = 0.125
+    )
+    n <- length(ls)
+    for(var in predictors){
+      ls <- append(ls, rnorm(1,0,1))
+    }
+    names(ls)[(n+1):(n+length(predictors))] <- paste('p_beta', predictors, sep = "_")
+    # names(ls)[(7+length(predictors)):length(ls)] <- paste('p_beta', predictors, sep = "_")
+    
+    return(ls)
+  }
+  
+  return(inits)
+  
 }

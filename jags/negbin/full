@@ -1,0 +1,59 @@
+
+  model{
+    #Likelihood
+    
+    # Distribution Parameters for Random Efects on
+    # 1. Negative Binomial probability p ~ dbeta(shape1, shape2)
+    p_alpha_shp2 <- p_alpha_shp1*((1/p_alpha_mu) - 1)
+    p_alpha_shp1 <- (((1-p_alpha_mu)/p_alpha_v)-1/p_alpha_mu )* pow(p_alpha_mu, 2)
+    
+    # 2. Bernouli probability p ~ dbeta(shape1, shape2)
+    # psi_alpha_shp2 <- psi_alpha_shp1*((1/psi_alpha_mu) - 1)
+    # psi_alpha_shp1 <- (((1-psi_alpha_mu)/psi_alpha_v)-1/psi_alpha_mu )* pow(psi_alpha_mu, 2)
+    
+    # random intercept per state on binomial intercept and neg binomial intercept
+    for (s in 1:S){
+      # psi_alpha[s] ~ dbeta(psi_alpha_shp1, psi_alpha_shp2)
+  
+      p_alpha[s] ~ dbeta(p_alpha_shp1, p_alpha_shp2)
+    }
+    
+    # binomial data model
+    for (i in 1:N){
+      # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
+      solar[i] ~ dbern(psi)
+      
+      # time to detection is a negative binomial process with state-specific shape and rate determined by covariates
+      ttd[i] ~ dnegbin(p[statei[i]], 1)
+      logit(p[i]) <- logit(p_alpha[statei[i]]) + p_beta_slope*slope[i]
+      
+      # model for censoring observed arrays due to not seeing into the future
+      # whether we see an array is a bernouli process determined by
+      # theta is 0 if site will never be developed (i.e. z[i] = 0) 
+      #  or will be developed but not detected yet (i.e. z[i] = 1, ttd[i] > Tmax[i])
+      
+      d[i]~dbern(theta[i])
+      theta[i] <-solar[i]*step(ttd[i] - tmax[i]) + (1-solar[i])
+      
+      # Expected data under current model
+      ttd_sim[i] ~ dnegbin(p[statei[i]], 1)
+      ttd_exp[i] <- p[statei[i]]/pow((1-p[statei[i]]), 2)
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i]
+    }
+    
+    fit <- sum(chi2[])
+    fit_sim <- sum(chi2_sim[])
+    bpv <- step(fit_sim - fit)
+    
+    #Priors
+    # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
+    # to simulate gamma(0.0001, 0.0001) with no state effect
+    psi ~ dunif(0, 1)
+    p_alpha_mu ~ dunif(0, 1)
+    p_alpha_v ~ dunif(0, 0.2)
+    # psi_alpha_mu ~ dunif(0, 1) 
+    # psi_alpha_v ~ dunif(0, 0.2)
+    p_beta_slope~dnorm(0, 0.0001)
+  }
+  

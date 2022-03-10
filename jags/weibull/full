@@ -27,14 +27,14 @@
       # zi = 'true' site occupancy - whether it will ever be developed. NOT what we observed
       # solar[i] ~ dbern(psi[i])
       # probability of ever being developed linear fxn of covariates with state-specific intercept
-      # logit(psi[i]) <- logit(psi_alpha[statei[i]]) + psi_beta_impervious16*impervious16[i] + psi_beta_open16*open16[i] + psi_beta_tree_cover16*tree_cover16[i] + psi_beta_slope*slope[i]
+      # logit(psi[i]) <- logit(psi_alpha[statei[i]]) + psi_beta_impervious16*impervious16[i] + psi_beta_open16*open16[i] + psi_beta_tree_cover16*tree_cover16[i] + psi_beta_cultivated16*cultivated16[i] + psi_beta_slope*slope[i] + psi_beta_GAP_Sts*GAP_Sts[i] + psi_beta_line_dist*line_dist[i] + psi_beta_road_dist*road_dist[i] + psi_beta_POPULATION*POPULATION[i] + psi_beta_lat*lat[i]
       
       # time to detection is a weibull process with state-specific shape and rate determined by covariates
       ttd[i] ~ dweib(shape[statei[i]], rate[i])
-      log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_impervious16*impervious16[i] + rate_beta_open16*open16[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_slope*slope[i]
+      log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_impervious16*impervious16[i] + rate_beta_open16*open16[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_cultivated16*cultivated16[i] + rate_beta_slope*slope[i] + rate_beta_GAP_Sts*GAP_Sts[i] + rate_beta_line_dist*line_dist[i] + rate_beta_road_dist*road_dist[i] + rate_beta_POPULATION*POPULATION[i] + rate_beta_lat*lat[i]
       
       # Expected data under current model
-      ttd_new[i] ~ dweib(shape[statei[i]], rate[i])
+      ttd_sim[i] ~ dweib(shape[statei[i]], rate[i])
       # solar_exp[i] ~ dbern(psi[i])
     }
     
@@ -47,12 +47,14 @@
     rate_alpha_v ~ dunif(0, 1000)
     # psi_alpha_mu ~ dunif(0, 1) 
     # psi_alpha_v ~ dunif(0, 0.2)
-    # psi_beta_impervious16~dnorm(0, 0.0001)
-    psi_beta_open16~dnorm(0, 0.0001)
-    psi_beta_tree_cover16~dnorm(0, 0.0001)
-    psi_beta_slope~dnorm(0, 0.0001)
     rate_beta_impervious16~dnorm(0, 0.0001)
     rate_beta_open16~dnorm(0, 0.0001)
     rate_beta_tree_cover16~dnorm(0, 0.0001)
+    rate_beta_cultivated16~dnorm(0, 0.0001)
     rate_beta_slope~dnorm(0, 0.0001)
+    rate_beta_GAP_Sts~dnorm(0, 0.0001)
+    rate_beta_line_dist~dnorm(0, 0.0001)
+    rate_beta_road_dist~dnorm(0, 0.0001)
+    rate_beta_POPULATION~dnorm(0, 0.0001)
+    rate_beta_lat~dnorm(0, 0.0001)
   }
