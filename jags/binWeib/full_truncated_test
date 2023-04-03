@@ -1,0 +1,60 @@
+
+  model {
+    # hyperparameters for random effects on 
+    
+    # mean shape from a preliminary run without random effects was 3.2
+    shape_shape <- pow(shape_mu, 2)/shape_v
+    shape_rate <- shape_mu/shape_v
+    
+    alpha_shape <- pow(alpha_mu, 2)/alpha_v
+    alpha_rate <- alpha_mu/alpha_v
+    
+    for (s in 1:S){
+      shape[s] ~ dgamma(shape_shape, shape_rate)
+      alpha[s] ~ dgamma(alpha_shape, alpha_rate)
+    }
+    for (i in 1:N){
+      # likelihood solar
+      # solar[i] ~ dbern(psi)
+      solar[i] ~ dbern(psi)
+      
+      # likelihood time to detection
+      # ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      log(lambda[i]) <- log(alpha[statei[i]]) + beta_impervious16*impervious16[i] + beta_open16*open16[i] + beta_tree_cover16*tree_cover16[i] + beta_cultivated16*cultivated16[i] + beta_ssurgo*ssurgo[i] + beta_slope*slope[i] + beta_GAP_Sts*GAP_Sts[i] + beta_line_dist*line_dist[i] + beta_road_dist*road_dist[i] + beta_POPULATION*POPULATION[i] + beta_lat*lat[i]
+      
+      # censoring
+      d[i] ~ dbern(theta[i])
+      theta[i] <- (1-solar[i]) * step(ttd[i] - tmax[i]) + (solar[i])
+      
+      # expected values
+      ttd_sim[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      ttd_exp[i] <- pow(lambda[i], -1/shape[statei[i]])*exp(loggam(1 + (1/shape[statei[i]])))
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i] 
+    }
+  
+  fit <- mean(chi2[])
+  fit_sim <- mean(chi2_sim[])
+  bpv <- step(fit - fit_sim)
+
+  # shape ~ dgamma(0.0001, 0.0001)  
+  shape_mu ~ dunif(0,5)
+  shape_v ~ dunif(0, 1000)
+  # alpha ~ dgamma(0.0001, 0.0001)
+  alpha_mu ~ dunif(0,5)
+  alpha_v ~ dunif(0, 1000)
+  psi ~ dunif(0,1)
+  beta_impervious16~dnorm(0, 0.0001)
+  beta_open16~dnorm(0, 0.0001)
+  beta_tree_cover16~dnorm(0, 0.0001)
+  beta_cultivated16~dnorm(0, 0.0001)
+  beta_ssurgo~dnorm(0, 0.0001)
+  beta_slope~dnorm(0, 0.0001)
+  beta_GAP_Sts~dnorm(0, 0.0001)
+  beta_line_dist~dnorm(0, 0.0001)
+  beta_road_dist~dnorm(0, 0.0001)
+  beta_POPULATION~dnorm(0, 0.0001)
+  beta_lat~dnorm(0, 0.0001)
+  }
+  

@@ -14,9 +14,8 @@
     
     # for every observation
     for (i in 1:N){
-      z[i] ~ dbern(psi)
       # time to detection is a negative binomial process with state-specific shape and rate determined by covariates
-      ttd[i] ~ dnegbin(p[i]*z[i]+0.00001, 1)T(l[i],)
+      ttd[i] ~ dnegbin(p[i], 1)T(l[i],)
       logit(p[i]) <- logit(p_alpha[statei[i]]) + p_beta_impervious16*impervious16[i] + p_beta_open16*open16[i] + p_beta_tree_cover16*tree_cover16[i] + p_beta_cultivated16*cultivated16[i] + p_beta_slope*slope[i] + p_beta_GAP_Sts*GAP_Sts[i] + p_beta_line_dist*line_dist[i] + p_beta_road_dist*road_dist[i] + p_beta_POPULATION*POPULATION[i] + p_beta_lat*lat[i]
       
       # model for censoring observed arrays due to not seeing into the future
@@ -27,10 +26,10 @@
       d[i]~dinterval(ttd[i], tmax[i])
       
       # Expected data under current model
-      ttd_sim[i] ~ dnegbin(p[i], 1)T(l[i],)
-      ttd_exp[i] <- p[i]/(1-p[i])
-      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
-      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i]
+      ttd_sim[i] ~ dnegbin(p[i], 1)
+      ttd_exp[i] <- (1-p[i])/p[i]
+      chi2[i] <- pow((ttd[i] - ttd_exp[i]), 2)/ttd_exp[i]
+      chi2_sim[i] <- pow((ttd_sim[i] - ttd_exp[i]), 2)/ttd_exp[i]
     }
     
     fit <- mean(chi2[])
@@ -44,7 +43,7 @@
     p_alpha_v ~ dunif(0, 0.2)
     # psi_alpha_mu ~ dunif(0, 1) 
     # psi_alpha_v ~ dunif(0, 0.2)
-    psi ~ dunif(0,1)
+    # psi ~ dunif(0,1)
     p_beta_impervious16~dnorm(0, 0.0001)
     p_beta_open16~dnorm(0, 0.0001)
     p_beta_tree_cover16~dnorm(0, 0.0001)

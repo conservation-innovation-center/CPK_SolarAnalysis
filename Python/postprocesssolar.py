@@ -14,7 +14,7 @@ import geopandas as gpd
 import pandas as pd
 import rasterio as rio
 import ee
-from google.colab import drive, auth
+
 from shapely.geometry import Point, Polygon
 import numpy as np
 from numpy.random import normal
@@ -105,7 +105,10 @@ annualGDF.to_file(outFile+'.shp')
 del gdf
 
 """### Create Dataframe with unique polygons per year
-For statistical analysis, a GeoDataFrame with the same solar array represented in multiple years leads to pseudoreplication. Therefore, we need an alternatively structure dataset in which each row represents a solar array polygon in the first year that it appeared.
+For statistical analysis, a GeoDataFrame with the same solar array
+ represented in multiple years leads to pseudoreplication. 
+ Therefore, we need an alternatively structure dataset in which each row
+ represents a solar array polygon in the first year that it appeared.
 """
 
 # get the year of all overlapping polygons

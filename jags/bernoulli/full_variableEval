@@ -1,0 +1,65 @@
+
+  model{
+    #Likelihood
+    alpha_shp1 <- (((1-alpha_mu)/alpha_v) - (1/alpha_mu))*pow(alpha_mu, 2)
+    alpha_shp2 <- (((1-alpha_mu)/alpha_v) - (1/alpha_mu))*alpha_mu*(1-alpha_mu)
+    # for each level of random
+    for (s in 1:S){
+      alpha[s] ~ dbeta(alpha_shp1, alpha_shp2)
+    }
+    # binomial data model
+    for (i in 1:N){
+      solar[i] ~ dbin(p[i], tmax[i])T(0,1)
+      logit(p[i]) <- logit(alpha[statei[i]]) + w_impervious16*beta_impervious16*impervious16[i] + w_open16*beta_open16*open16[i] + w_tree_cover16*beta_tree_cover16*tree_cover16[i] + w_cultivated16*beta_cultivated16*cultivated16[i] + w_ssurgo*beta_ssurgo*ssurgo[i] + w_slope*beta_slope*slope[i] + w_GAP_Sts*beta_GAP_Sts*GAP_Sts[i] + w_line_dist*beta_line_dist*line_dist[i] + w_road_dist*beta_road_dist*road_dist[i] + w_POPULATION*beta_POPULATION*POPULATION[i] + w_lat*beta_lat*lat[i]
+    }
+    
+    #Priors
+    alpha_mu ~ dunif(0, 1)
+    alpha_v ~ dunif(0, 0.2)
+    # w_alpha ~ dbern(0.5)
+    # alpha0 ~ dnorm(0, 0.01)
+    w_impervious16~dbern(0.5)
+    w_open16~dbern(0.5)
+    w_tree_cover16~dbern(0.5)
+    w_cultivated16~dbern(0.5)
+    w_ssurgo~dbern(0.5)
+    w_slope~dbern(0.5)
+    w_GAP_Sts~dbern(0.5)
+    w_line_dist~dbern(0.5)
+    w_road_dist~dbern(0.5)
+    w_POPULATION~dbern(0.5)
+    w_lat~dbern(0.5)
+    beta_impervious16 ~ dnorm(beta_impervious16_mu, beta_impervious16_tau)
+    beta_open16 ~ dnorm(beta_open16_mu, beta_open16_tau)
+    beta_tree_cover16 ~ dnorm(beta_tree_cover16_mu, beta_tree_cover16_tau)
+    beta_cultivated16 ~ dnorm(beta_cultivated16_mu, beta_cultivated16_tau)
+    beta_ssurgo ~ dnorm(beta_ssurgo_mu, beta_ssurgo_tau)
+    beta_slope ~ dnorm(beta_slope_mu, beta_slope_tau)
+    beta_GAP_Sts ~ dnorm(beta_GAP_Sts_mu, beta_GAP_Sts_tau)
+    beta_line_dist ~ dnorm(beta_line_dist_mu, beta_line_dist_tau)
+    beta_road_dist ~ dnorm(beta_road_dist_mu, beta_road_dist_tau)
+    beta_POPULATION ~ dnorm(beta_POPULATION_mu, beta_POPULATION_tau)
+    beta_lat ~ dnorm(beta_lat_mu, beta_lat_tau)
+    beta_impervious16_mu <- w_impervious16*-33.9351036300238
+    beta_open16_mu <- w_open16*0.169101033955321
+    beta_tree_cover16_mu <- w_tree_cover16*-1.72046015300602
+    beta_cultivated16_mu <- w_cultivated16*0.307075815317145
+    beta_ssurgo_mu <- w_ssurgo*1.12536703031059
+    beta_slope_mu <- w_slope*-6.82148248846802
+    beta_GAP_Sts_mu <- w_GAP_Sts*1.32345181397026
+    beta_line_dist_mu <- w_line_dist*-10.2581578245881
+    beta_road_dist_mu <- w_road_dist*-8.28559351535071
+    beta_POPULATION_mu <- w_POPULATION*0.393181626014563
+    beta_lat_mu <- w_lat*-2.83881138709884
+    beta_impervious16_tau <- w_impervious16*0.0691532546974788+ (1 - w_impervious16)*0.1
+    beta_open16_tau <- w_open16*17.9220594357652+ (1 - w_open16)*0.1
+    beta_tree_cover16_tau <- w_tree_cover16*34.6197567344559+ (1 - w_tree_cover16)*0.1
+    beta_cultivated16_tau <- w_cultivated16*33.6795888107879+ (1 - w_cultivated16)*0.1
+    beta_ssurgo_tau <- w_ssurgo*28.38644053041+ (1 - w_ssurgo)*0.1
+    beta_slope_tau <- w_slope*1.50629626695482+ (1 - w_slope)*0.1
+    beta_GAP_Sts_tau <- w_GAP_Sts*4.01983813253936+ (1 - w_GAP_Sts)*0.1
+    beta_line_dist_tau <- w_line_dist*1.45254439045101+ (1 - w_line_dist)*0.1
+    beta_road_dist_tau <- w_road_dist*0.190447303971011+ (1 - w_road_dist)*0.1
+    beta_POPULATION_tau <- w_POPULATION*20.3650218825875+ (1 - w_POPULATION)*0.1
+    beta_lat_tau <- w_lat*2.67492035893098+ (1 - w_lat)*0.1
+  }

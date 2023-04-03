@@ -1,0 +1,66 @@
+
+  model{
+    #Likelihood
+    
+    # Distribution Parameters for Random Efects on
+    # 1. Negative Binomial probability p ~ dbeta(shape1, shape2)
+    # https://stats.stackexchange.com/questions/12232/calculating-the-parameters-of-a-beta-distribution-using-the-mean-and-variance
+    # psi_shp1 <- (((1-psi_mu)/psi_v) - (1/psi_mu))*pow(psi_mu, 2)
+    # psi_shp2 <- (((1-psi_mu)/psi_v) - (1/psi_mu))*psi_mu*(1-psi_mu)
+    # https://cchecastaldo.github.io/BayesianShortCourse/content/lectures/MomentMatching.pdf
+    # psi_shp1 <- (pow(psi_mu, 2) - pow(psi_mu, 3) - (psi_mu*psi_v))/psi_v
+    # psi_shp2 <- (psi_mu - (2*pow(psi_mu, 2)) + pow(psi_mu, 3) - psi_v + (psi_mu*psi_v))/psi_v
+    
+    # random intercept per state on binomial intercept and neg binomial intercept
+    # for (s in 1:S){
+    #   psi[s] ~ dbeta(psi_shp1, psi_shp2)
+    # }
+    
+    # for every observation
+    for (i in 1:N){
+      # model for suitability of a site to solar development, z[i]
+      # z[i] ~ dbern(psi[statei[i]])
+      
+      # time to detection is a negative binomial process ignoring censoring
+      # contResponseString
+      ttd[i] ~ dnegbin(p[i], 1)T(l[i],)
+      # contPredictorString
+      logit(p[i]) <- logit(p_alpha) + p_beta_slope*slope[i] + p_beta_tree_cover16*tree_cover16[i] + p_beta_road_dist*road_dist[i]
+      
+      # model for censoring observed arrays due to not seeing into the future
+      
+      # OPTION 1:
+      # whether we see an array is a bernouli process determined by
+      # theta is 0 if site will never be developed (i.e. z[i] = 0) 
+      #  or will be developed but not detected yet (i.e. z[i] = 1, ttd[i] > Tmax[i])
+      
+      d[i] ~ dinterval(ttd[i], tmax[i])
+      # d[i] ~ dbern(theta[i])
+      # theta[i] <- (z[i] * step(ttd[i] - tmax[i])) + (1 - z[i])
+      
+      # OPTION 2:
+      # use jags dinterval to model censoring...?
+      
+      # Expected data under current model
+      ttd_sim[i] ~ dnegbin(p[i], 1)T(l[i],)
+      ttd_exp[i] <- (1-p[i])/p[i]
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i]
+    }
+    
+    fit <- mean(chi2[])
+    fit_sim <- mean(chi2_sim[])
+    bpv <- step(fit_sim - fit)
+    
+    #Priors
+    # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
+    # to simulate gamma(0.0001, 0.0001) with no state effect
+    psi_mu ~ dunif(0, 1)
+    psi_v ~ dunif(0, 0.2)
+    # psi_alpha_mu ~ dunif(0, 1) 
+    # psi_alpha_v ~ dunif(0, 0.2)
+    p_alpha ~ dunif(0,1)
+    p_beta_slope ~ dnorm(0, 0.0001)
+    p_beta_tree_cover16 ~ dnorm(0, 0.0001)
+    p_beta_road_dist ~ dnorm(0, 0.0001)
+  }

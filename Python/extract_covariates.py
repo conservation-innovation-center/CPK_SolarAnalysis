@@ -10,6 +10,7 @@ import requests
 import pandas as pd
 from os.path import join
 import fiona 
+from rasterstats import zonal_stats
 
 network_drive = 'S:\\'
 project_folder = 'SolarAnalysis\Data\Vector'
@@ -22,6 +23,7 @@ parcel_file= join(network_drive, project_folder, 'parcels_CBW_bycounty.gdb')
 tracts_file= join(network_drive, project_folder, 'CPK_TIGER_Tracts_2020_merge.shp')
 padus_file= join(network_drive, project_folder, 'PADUS_Fee_CPK.shp')
 lines_file = join(network_drive, project_folder, 'Electric_Power_Transmission_Lines/Electric_Power_Transmission_Lines.shp')
+ssurgo_file = join(network_drive, 'SolarAnalysis\Data\Raster\SURRGO_4class.tif')
 
 statesGDF = gpd.read_file(cpk_states_file).to_crs('epsg:3857')
 arrayGDF = gpd.read_file(cpk_solar_file)
@@ -46,10 +48,12 @@ polysGDF = gpd.GeoDataFrame(data = solarGDF['index'], geometry = solarGDF.geomet
 # We'll deal with covariates one at a time
 ## census tracts
 tractGDF = gpd.read_file(tracts_file)
+# convert pop to mi-2
+tractGDF['pdensity'] = tractGDF['POPULATION']/tractGDF['SQMI']
 
 # join census tract FIPS and Population to arrays
 # census tracts are from TIGER 2020 data
-joined = centroidGDF.sjoin(tractGDF[['geometry', 'FIPS', 'POPULATION']],
+joined = centroidGDF.sjoin(tractGDF[['geometry', 'FIPS', 'POPULATION', 'pdensity']],
                         how = 'left',
                         predicate = 'within')
 
@@ -101,6 +105,7 @@ dissolved = joined.dissolve(
         'GAP_Sts':'min',
         'FIPS':'first',
         'POPULATION':'first',
+        'pdensity': 'first',
         'income':'first',
         'housing':'first',
         'index_right':'first'},
@@ -236,6 +241,46 @@ merged = solarGDF.merge(
 len(merged) == len(solarGDF)
 len(merged[merged['index'].duplicated()]) == 0
 
-## Write our data out for analysis in R!
+
+## SSURGO
+# use zonal stats to extract the mean farmland importance value within each polygon
+
 merged.to_file('./data/solar_analysis_data.geojson', driver = 'GeoJSON')
-merged.to_csv('./data/solar_analysis_data.csv')
+
+ssurgo_stats = zonal_stats(
+    './data/solar_analysis_data.geojson',
+    ssurgo_file,
+    stats = 'mean')
+
+#zonal_stats outputs a list of dictionaries, covert to array
+ssurgo = [d['mean'] for d in ssurgo_stats]
+merged['ssurgo'] = ssurgo
+
+## Write our data out for analysis in R!
+merged.drop(['geometry'], axis = 1).to_csv('./data/solar_analysis_data.csv')
+
+no_income = merged[merged.income.isna()]
+len(no_income)
+fixed_income = []
+for index, row in no_income.iterrows():
+    neighbors = merged[merged.geometry.touches(row['geometry'])]
+    income = neighbors.income[neighbors.income.notna()].astype(int).mean()
+    FIPS = row.FIPS
+    fixed_income.append(income)
+    merged.loc[merged.FIPS == FIPS, 'income'] = income
+
+## USGS GAP DATA
+reptile_url = 'https://prod-is-s3-service.s3.amazonaws.com/ScienceBase/prod/5bf2eb54e4b045bfcae0c10b/a44a49612f4882091c4814bc48fbde3da0effa09/reptile_richness_habitat30m.tif?AWSAccessKeyId=AKIAI7K4IX6D4QLARINA&Expires=1675443607&Signature=x%2FvyFCPGVAPTvwE28XivOoQM0gw%3D'
+
+reptile_stats = zonal_stats(
+    solarGDF.to_crs(5070),
+    reptile_url,
+    band = 1,
+    stats = 'mean')
+
+reptile_list = [stat['mean'] for stat in reptile_stats]
+
+taxaDF = pd.DataFrame(data = {'birds':bird_list, 'amphibians':amphibian_list, 'reptile':reptile_list, 'mammals':mammal_list})
+taxaDF['state'] = solarGDF['state']
+taxaDF['year'] = solarGDF['year']
+taxaDF.to_csv('./data/biodiversity.csv')

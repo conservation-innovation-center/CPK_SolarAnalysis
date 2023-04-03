@@ -1,0 +1,37 @@
+
+model{
+  #Likelihood
+  # for each of the S states...
+  for (j in 1:S){
+    alpha[j] ~ dnorm(mu_alpha, tau_alpha)
+    beta[j] ~ dnorm(mu_beta, tau_beta)
+  }
+
+  for (i in 1:N){
+  # for each observation
+    # species richness are counts from a poisson distribution
+    richness[i] ~ dpois(mu[i])
+    # with mean determined by state and taxa
+    mu[i] <- alpha[state[i]] + beta[state[i]]*solar[i]
+    
+    # Expected data under current model
+    richness_sim[i] ~ dpois(mu[i])
+    richness_exp[i] <- mu[i]
+    chi[i] <- pow((richness[i] - richness_exp[i]), 2)/(richness_exp[i]+0.00001)
+    chi_sim[i] <- pow((richness_sim[i] - richness_exp[i]), 2)/(richness_exp[i]+0.00001)
+  }
+  
+  
+  fit <- mean(chi[])
+  fit_sim <- mean(chi_sim[])
+  
+  #Priors
+  mu_alpha ~ dnorm(0, 0.01)
+  tau_alpha <- 1/var_alpha
+  var_alpha ~ dunif(0, 1000)
+  mu_beta ~ dnorm(0, 0.01)
+  tau_beta <- 1/var_beta
+  var_beta ~ dunif(0, 1000)
+#  tau <- 1/var_tau
+#  var_tau ~ dunif(0, 1000)
+}

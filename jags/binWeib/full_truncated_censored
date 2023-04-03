@@ -30,11 +30,20 @@
       # time to detection is a weibull process with state-specific shape and rate determined by covariates
       ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i],)
       rate[i] ~ dgamma(rate_shape, rate_rate)
-      lambda[i] <- rate[i]*z[i]+0.0001
+      lambda[i] <- rate[i]*z[i]+0.000001
+      
+      d[i] ~ dinterval(ttd[i], tmax[i])
       
       # Expected data under current model
-      ttd_sim[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i],)
+      ttd_sim[i] ~ dweib(shape[statei[i]], lambda[i])
+      ttd_exp[i] <- pow(lambda[i], -1/shape[statei[i]])*exp(loggam(1 + (1/shape[statei[i]])))
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i]
     }
+    
+    fit <- mean(chi2[])
+    fit_sim <- mean(chi2_sim[])
+    bpv <- step(fit_sim - fit)
     
     #Priors
     # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000

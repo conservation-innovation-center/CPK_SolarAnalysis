@@ -26,6 +26,20 @@ centroids = missing.geometry.centroid
 centroidGDF = gpd.GeoDataFrame(data = missing['index'], geometry = centroids, crs = centroids.crs)
 
 def get_parcel_area(parcelGDF, file):
+    """ extract the area of parcels
+    
+    Parameters
+    ---------
+    parcelGDF : geoDataFrame
+        blah blah blah
+    file: str
+        path to the file
+    
+    Returns
+    -------
+    geoDataFrame:
+        blah blah blah
+    """
     if 'Shape_Area' not in parcelGDF.columns:
         parcelGDF['Shape_Area'] = parcelGDF.geometry.area
     joined = centroidGDF.sjoin(

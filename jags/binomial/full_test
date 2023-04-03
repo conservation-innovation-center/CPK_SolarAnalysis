@@ -1,0 +1,41 @@
+
+  model{
+    #Likelihood
+    alpha_shp1 <- (((1-alpha_mu)/alpha_v) - (1/alpha_mu))*pow(alpha_mu, 2)
+    alpha_shp2 <- (((1-alpha_mu)/alpha_v) - (1/alpha_mu))*alpha_mu*(1-alpha_mu)
+    # for each level of random
+    for (s in 1:S){
+      alpha[s] ~ dbeta(alpha_shp1, alpha_shp2)
+    }
+    # binomial data model
+    for (i in 1:N){
+      solar[i] ~ dbern(p[i])
+      logit(p[i]) <- logit(alpha0) + beta_impervious16*impervious16[i] + beta_open16*open16[i] + beta_tree_cover16*tree_cover16[i] + beta_cultivated16*cultivated16[i] + beta_ssurgo*ssurgo[i] + beta_slope*slope[i] + beta_GAP_Sts*GAP_Sts[i] + beta_line_dist*line_dist[i] + beta_road_dist*road_dist[i] + beta_POPULATION*POPULATION[i] + beta_lat*lat[i]
+    
+    # calculate expected values
+    solar_exp[i] <- p[i]
+    solar_sim[i] ~ dbern(p[i])
+    chi2[i] <- pow(solar[i] - solar_exp[i], 2)/solar_exp[i]
+    chi2_sim[i] <- pow(solar_sim[i] - solar_exp[i], 2)/solar_exp[i]
+    }
+    
+    fit <- mean(chi2[])
+    fit_sim <- mean(chi2_sim[])
+    bpv <- step(fit - fit_sim)
+    
+    #Priors
+    alpha_mu ~ dunif(0, 1)
+    alpha_v ~ dunif(0, 0.2)
+    alpha0 ~ dunif(0,1)
+    beta_impervious16~dnorm(0, 0.001)
+    beta_open16~dnorm(0, 0.001)
+    beta_tree_cover16~dnorm(0, 0.001)
+    beta_cultivated16~dnorm(0, 0.001)
+    beta_ssurgo~dnorm(0, 0.001)
+    beta_slope~dnorm(0, 0.001)
+    beta_GAP_Sts~dnorm(0, 0.001)
+    beta_line_dist~dnorm(0, 0.001)
+    beta_road_dist~dnorm(0, 0.001)
+    beta_POPULATION~dnorm(0, 0.001)
+    beta_lat~dnorm(0, 0.001)
+  }

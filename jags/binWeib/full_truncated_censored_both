@@ -1,0 +1,62 @@
+
+  model {
+    # hyperparameters for random effects on 
+    
+    shape_shape <- pow(shape_mu, 2)/shape_v
+    shape_rate <- shape_mu/shape_v
+    
+    alpha_shape <- pow(alpha_mu, 2)/alpha_v
+    alpha_rate <- alpha_mu/alpha_v
+    # mean shape from a preliminary run without random effects was 3.2
+    
+    for (s in 1:S){
+      shape[s] ~ dgamma(shape_shape, shape_rate)
+      alpha[s] ~ dgamma(alpha_shape, alpha_rate)
+    }
+    #LIKELIHOOD
+    for (i in 1:N){
+      # likelihood solar
+      # binString
+      solar[i] ~ dbern(psi)
+      
+      # likelihood time to detection
+      # contString
+      ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      # contPredictorString
+      log(lambda[i]) <- log(alpha[statei[i]]) + beta_impervious16*impervious16[i] + beta_open16*open16[i] + beta_tree_cover16*tree_cover16[i] + beta_cultivated16*cultivated16[i] + beta_ssurgo*ssurgo[i] + beta_slope*slope[i] + beta_GAP_Sts*GAP_Sts[i] + beta_line_dist*line_dist[i] + beta_road_dist*road_dist[i] + beta_pdensity*pdensity[i] + beta_income*income[i] + beta_lat*lat[i]
+      
+      # censoring
+      d[i] ~ dbern(theta[i])
+      theta[i] <- (1-solar[i]) * step(ttd[i] - tmax[i]) + (solar[i])
+      
+      # expected values
+      ttd_sim[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      ttd_exp[i] <- pow(lambda[i], -1/shape[statei[i]])*exp(loggam(1 + (1/shape[statei[i]])))
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i] 
+    }
+  
+  fit <- mean(chi2[])
+  fit_sim <- mean(chi2_sim[])
+
+  # PRIORS
+  # all normal priors are posterior means and 10x sd from run with no random effects
+  shape_mu ~ dnorm(2.13, 1/sqrt(5*0.0937))
+  shape_v ~ dunif(0, 1000)
+  alpha_mu ~ dnorm(0.068, 1/sqrt(2*0.02))
+  alpha_v ~ dunif(0, 1000)
+  psi ~ dunif(0,1)
+  beta_impervious16~dnorm(-14.85452, 1/sqrt(5*1.614427))
+  beta_open16~dnorm(0.08064416, 1/sqrt(5*0.1637538))
+  beta_tree_cover16~dnorm(-1.54403, 1/sqrt(5*0.1364319))
+  beta_cultivated16~dnorm(0.1669625, 1/sqrt(5*0.1250784))
+  beta_ssurgo~dnorm(1.129879, 1/sqrt(5*0.1401312))
+  beta_slope~dnorm(-3.271677, 1/sqrt(5*0.3213576))
+  beta_GAP_Sts~dnorm(-1.53542, 1/sqrt(5*0.4719218))
+  beta_line_dist~dnorm(-1.747733, 1/sqrt(5*0.1804204))
+  beta_road_dist~dnorm(0.379461, 1/sqrt(5*0.1522874))
+  beta_pdensity~dnorm(0.2657976, 1/sqrt(5*0.1714846))
+  beta_income~dnorm(-0.2640243, 1/sqrt(5*0.2693352))
+  beta_lat~dnorm(-0.6433779, 1/sqrt(5*0.1547783))
+  }
+  

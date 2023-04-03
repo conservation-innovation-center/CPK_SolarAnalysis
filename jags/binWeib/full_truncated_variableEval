@@ -1,0 +1,84 @@
+
+  model {
+    # hyperparameters for random effects on 
+    
+    # mean shape from a preliminary run without random effects was 3.2
+    shape_shape <- pow(shape_mu, 2)/shape_v
+    shape_rate <- shape_mu/shape_v
+    
+    alpha_shape <- pow(alpha_mu, 2)/alpha_v
+    alpha_rate <- alpha_mu/alpha_v
+    
+    for (s in 1:S){
+      shape[s] ~ dgamma(shape_shape, shape_rate)
+      alpha[s] ~ dgamma(alpha_shape, alpha_rate)
+    }
+    for (i in 1:N){
+      # likelihood solar
+      # solar[i] ~ dbern(psi)
+      solar[i] ~ dbern(psi)
+      
+      # likelihood time to detection
+      # ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      ttd[i] ~ dweib(shape[statei[i]], lambda[i])T(l[i], )
+      log(lambda[i]) <- log(alpha[statei[i]]) + w_impervious16*beta_impervious16*impervious16[i] + w_open16*beta_open16*open16[i] + w_tree_cover16*beta_tree_cover16*tree_cover16[i] + w_cultivated16*beta_cultivated16*cultivated16[i] + w_ssurgo*beta_ssurgo*ssurgo[i] + w_slope*beta_slope*slope[i] + w_GAP_Sts*beta_GAP_Sts*GAP_Sts[i] + w_line_dist*beta_line_dist*line_dist[i] + w_road_dist*beta_road_dist*road_dist[i] + w_POPULATION*beta_POPULATION*POPULATION[i] + w_lat*beta_lat*lat[i]
+      
+      # censoring
+      d[i] ~ dbern(theta[i])
+      theta[i] <- solar[i]*step(ttd[i] - tmax[i]) + (1-solar[i])
+
+    }
+
+  # shape ~ dgamma(0.0001, 0.0001)  
+  shape_mu ~ dunif(0,5)
+  shape_v ~ dunif(0, 1000)
+  # alpha ~ dgamma(0.0001, 0.0001)
+  alpha_mu ~ dunif(0,5)
+  alpha_v ~ dunif(0, 1000)
+  psi ~ dunif(0,1)
+  w_impervious16~dbern(0.5)
+    w_open16~dbern(0.5)
+    w_tree_cover16~dbern(0.5)
+    w_cultivated16~dbern(0.5)
+    w_ssurgo~dbern(0.5)
+    w_slope~dbern(0.5)
+    w_GAP_Sts~dbern(0.5)
+    w_line_dist~dbern(0.5)
+    w_road_dist~dbern(0.5)
+    w_POPULATION~dbern(0.5)
+    w_lat~dbern(0.5)
+  beta_impervious16 ~ dnorm(beta_impervious16_mu, beta_impervious16_tau)
+    beta_open16 ~ dnorm(beta_open16_mu, beta_open16_tau)
+    beta_tree_cover16 ~ dnorm(beta_tree_cover16_mu, beta_tree_cover16_tau)
+    beta_cultivated16 ~ dnorm(beta_cultivated16_mu, beta_cultivated16_tau)
+    beta_ssurgo ~ dnorm(beta_ssurgo_mu, beta_ssurgo_tau)
+    beta_slope ~ dnorm(beta_slope_mu, beta_slope_tau)
+    beta_GAP_Sts ~ dnorm(beta_GAP_Sts_mu, beta_GAP_Sts_tau)
+    beta_line_dist ~ dnorm(beta_line_dist_mu, beta_line_dist_tau)
+    beta_road_dist ~ dnorm(beta_road_dist_mu, beta_road_dist_tau)
+    beta_POPULATION ~ dnorm(beta_POPULATION_mu, beta_POPULATION_tau)
+    beta_lat ~ dnorm(beta_lat_mu, beta_lat_tau)
+  beta_impervious16_mu <- w_impervious16*4.56302992758837
+    beta_open16_mu <- w_open16*-0.0247514240086972
+    beta_tree_cover16_mu <- w_tree_cover16*-0.164336473206513
+    beta_cultivated16_mu <- w_cultivated16*0.318259657170185
+    beta_ssurgo_mu <- w_ssurgo*-0.235942031353418
+    beta_slope_mu <- w_slope*-1.4818632462837
+    beta_GAP_Sts_mu <- w_GAP_Sts*-1.37677973671641
+    beta_line_dist_mu <- w_line_dist*0.0626655018713182
+    beta_road_dist_mu <- w_road_dist*-6.8773901281534
+    beta_POPULATION_mu <- w_POPULATION*-0.121819864575476
+    beta_lat_mu <- w_lat*-0.919453419075655
+  beta_impervious16_tau <- w_impervious16*0.161509028995081+ (1 - w_impervious16)*0.1
+    beta_open16_tau <- w_open16*41.1635164257493+ (1 - w_open16)*0.1
+    beta_tree_cover16_tau <- w_tree_cover16*53.6849728821653+ (1 - w_tree_cover16)*0.1
+    beta_cultivated16_tau <- w_cultivated16*65.6746371223208+ (1 - w_cultivated16)*0.1
+    beta_ssurgo_tau <- w_ssurgo*44.6648533418679+ (1 - w_ssurgo)*0.1
+    beta_slope_tau <- w_slope*2.73014495919482+ (1 - w_slope)*0.1
+    beta_GAP_Sts_tau <- w_GAP_Sts*3.28513224841675+ (1 - w_GAP_Sts)*0.1
+    beta_line_dist_tau <- w_line_dist*3.01221119267704+ (1 - w_line_dist)*0.1
+    beta_road_dist_tau <- w_road_dist*0.452119229922213+ (1 - w_road_dist)*0.1
+    beta_POPULATION_tau <- w_POPULATION*38.1225748871785+ (1 - w_POPULATION)*0.1
+    beta_lat_tau <- w_lat*4.1340847671119+ (1 - w_lat)*0.1
+  }
+  

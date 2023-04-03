@@ -1,0 +1,51 @@
+
+  model {
+    # hyperparameters for random effects on 
+    #
+    # mean shape from a preliminary run without random effects was 3.2
+    #
+    #LIKELIHOOD
+    for (i in 1:N){
+      # likelihood solar
+      # binString
+      solar[i] ~ dbern(psi)
+      
+      # likelihood time to detection
+      # contString
+      ttd[i] ~ dweib(shape, lambda[i])T(l[i], )
+      # contPredictorString
+      log(lambda[i]) <- log(alpha) + beta_impervious16*impervious16[i] + beta_open16*open16[i] + beta_tree_cover16*tree_cover16[i] + beta_cultivated16*cultivated16[i] + beta_ssurgo*ssurgo[i] + beta_slope*slope[i] + beta_GAP_Sts*GAP_Sts[i] + beta_line_dist*line_dist[i] + beta_road_dist*road_dist[i] + beta_pdensity*pdensity[i] + beta_income*income[i] + beta_lat*lat[i]
+      
+      # censoring
+      d[i] ~ dbern(theta[i])
+      theta[i] <- (1-solar[i]) * step(ttd[i] - tmax[i]) + (solar[i])
+      
+      # expected values
+      ttd_sim[i] ~ dweib(shape, lambda[i])T(l[i], )
+    ttd_exp[i] <- pow(lambda[i], -1/shape)*exp(loggam(1 + (1/shape)))
+      chi2[i] <- pow(ttd[i] - ttd_exp[i], 2)/ttd_exp[i]
+      chi2_sim[i] <- pow(ttd_sim[i] - ttd_exp[i], 2)/ttd_exp[i] 
+    }
+  
+  fit <- mean(chi2[])
+  fit_sim <- mean(chi2_sim[])
+
+  # PRIORS
+  # these gamma priors are from short test run
+  shape ~ dgamma(14.78128, 8.164688)
+  alpha ~ dgamma(1.193062, 29.81612)
+  psi ~ dunif(0,1)
+  beta_impervious16~dnorm(0, 0.01)
+  beta_open16~dnorm(0, 0.01)
+  beta_tree_cover16~dnorm(0, 0.01)
+  beta_cultivated16~dnorm(0, 0.01)
+  beta_ssurgo~dnorm(0, 0.01)
+  beta_slope~dnorm(0, 0.01)
+  beta_GAP_Sts~dnorm(0, 0.01)
+  beta_line_dist~dnorm(0, 0.01)
+  beta_road_dist~dnorm(0, 0.01)
+  beta_pdensity~dnorm(0, 0.01)
+  beta_income~dnorm(0, 0.01)
+  beta_lat~dnorm(0, 0.01)
+  }
+  

@@ -1,20 +1,15 @@
 
   model{
     #Likelihood
-    
     # hyperparameters for random effects on 
     shape_shape <- pow(shape_mu, 2)/shape_v
     shape_rate <- shape_mu/shape_v
     
     rate_alpha_shape <- pow(rate_alpha_mu, 2)/rate_alpha_v
     rate_alpha_rate <- rate_alpha_mu/rate_alpha_v
-    
-    # psi_alpha_shp2 <- psi_alpha_shp1*((1/psi_alpha_mu) - 1)
-    # psi_alpha_shp1 <- (((1-psi_alpha_mu)/psi_alpha_v)-1/psi_alpha_mu )* pow(psi_alpha_mu, 2)
-    
+
     # random intercept per state on binomial intercept and weibul shape
     for (s in 1:S){
-      # psi_alpha[s] ~ dbeta(psi_alpha_shp1, psi_alpha_shp2)
       # the shape parameter for weibull is [0, Inf] & indicates increasing, decreasing, or steady risk
       # BUGS uses shape and rate parameterization of gamma
       shape[s] ~ dgamma(shape_shape, shape_rate)
@@ -25,36 +20,37 @@
     # for each observation
     for (i in 1:N){
       # time to detection is a weibull process with state-specific shape and rate determined by covariates
+      #responseString
       ttd[i] ~ dweib(shape[statei[i]], rate[i])T(l[i],)
-      log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_impervious16*impervious16[i] + rate_beta_open16*open16[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_cultivated16*cultivated16[i] + rate_beta_slope*slope[i] + rate_beta_GAP_Sts*GAP_Sts[i] + rate_beta_line_dist*line_dist[i] + rate_beta_road_dist*road_dist[i] + rate_beta_POPULATION*POPULATION[i] + rate_beta_lat*lat[i]
+      #predictorString
+      log(rate[i]) <- log(rate_alpha[statei[i]]) + rate_beta_slope*slope[i] + rate_beta_tree_cover16*tree_cover16[i] + rate_beta_road_dist*road_dist[i]
       
       # account for right censoring of ttd data - we cant look infinitely into the future
-      # d[i] ~ dbern(theta[i])
-      # theta[i] <- solar[i]*step(ttd[i] - tmax[i]) + (1-solar[i])
+      #censorString
       d[i] ~ dinterval(ttd[i], tmax[i])
-      
+
       # Expected data under current model
+      #simString
       ttd_sim[i] ~ dweib(shape[statei[i]], rate[i])T(l[i],)
-      # solar_exp[i] ~ dbern(psi[i])
+      #expString
+      ttd_exp[i] <- pow(rate[i], -1/shape[statei[i]])*exp(loggam(1+ (1/shape[statei[i]])))
+      chi2[i] <- pow((ttd[i] - ttd_exp[i]), 2)/ttd_exp[i]
+      chi2_sim[i] <- pow((ttd_sim[i] - ttd_exp[i]), 2)/ttd_exp[i]
     }
+    
+    fit <- mean(chi2[])
+    fit_sim <- mean(chi2_sim[])
+    bpv <- step(fit_sim - fit)
     
     #Priors
     # we want the mean of the gamma dist on weibull shape to be 1 and variance 1000
     # to simulate gamma(0.0001, 0.0001) with no state effect
-    shape_mu ~ dunif(0, 8)
+    shape_mu ~ dunif(0, 5)
     shape_v ~ dunif(0, 1000) 
-    rate_alpha_mu ~ dunif(0, 8)
+    rate_alpha_mu ~ dunif(0, 5)
     rate_alpha_v ~ dunif(0, 1000)
-    # psi_alpha_mu ~ dunif(0, 1) 
-    # psi_alpha_v ~ dunif(0, 0.2)
-    rate_beta_impervious16~dnorm(0, 0.0001)
-    rate_beta_open16~dnorm(0, 0.0001)
-    rate_beta_tree_cover16~dnorm(0, 0.0001)
-    rate_beta_cultivated16~dnorm(0, 0.0001)
+    #priorString
     rate_beta_slope~dnorm(0, 0.0001)
-    rate_beta_GAP_Sts~dnorm(0, 0.0001)
-    rate_beta_line_dist~dnorm(0, 0.0001)
+    rate_beta_tree_cover16~dnorm(0, 0.0001)
     rate_beta_road_dist~dnorm(0, 0.0001)
-    rate_beta_POPULATION~dnorm(0, 0.0001)
-    rate_beta_lat~dnorm(0, 0.0001)
   }

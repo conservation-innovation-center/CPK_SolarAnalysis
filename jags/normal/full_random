@@ -1,0 +1,34 @@
+
+model{
+  #Likelihood
+  for (j in 1:S){
+    alpha[j] ~ dnorm(mu_alpha, tau_alpha)
+    beta[j] ~ dnorm(mu_beta, tau_beta)
+  }
+
+  for (i in 1:N){
+    # proportion of land developed as solar is normal...?
+    area[i] ~ dnorm(mu[i], tau)
+    mu[i] <- alpha[state[i]] + beta[state[i]]*year[i]
+    
+    # Expected data under current model
+    area_sim[i] ~ dnorm(mu[i], tau)
+    area_exp[i] <- mu[i]
+    chi[i] <- pow((area[i] - area_exp[i]), 2)/(area_exp[i]+0.00001)
+    chi_sim[i] <- pow((area_sim[i] - area_exp[i]), 2)/(area_exp[i]+0.00001)
+  }
+  
+  
+  fit <- mean(chi[])
+  fit_sim <- mean(chi_sim[])
+  
+  #Priors
+  mu_alpha ~ dnorm(0, 0.01)
+  tau_alpha <- 1/var_alpha
+  var_alpha ~ dunif(0, 1000)
+  mu_beta ~ dnorm(0, 0.01)
+  tau_beta <- 1/var_beta
+  var_beta ~ dunif(0, 1000)
+  tau <- 1/var_tau
+  var_tau ~ dunif(0, 1000)
+}
